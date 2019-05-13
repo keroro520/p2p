@@ -72,18 +72,12 @@ impl ServiceControl {
         if self.closed.load(Ordering::SeqCst) {
             return Ok(());
         }
-        let timeout = Instant::now();
-        loop {
-            if counter.load(Ordering::SeqCst) < limit {
-                let old = counter.fetch_add(1, Ordering::SeqCst);
-                trace!("normal add task number to {}", old + 1);
-                break sender.unbounded_send(event).map_err(Into::into);
-            } else {
-                if timeout.elapsed() > Duration::from_secs(6) {
-                    return Err(Error::IoError(io::ErrorKind::TimedOut.into()));
-                }
-                thread::sleep(Duration::from_millis(100))
-            }
+        if counter.load(Ordering::SeqCst) < limit {
+            let old = counter.fetch_add(1, Ordering::SeqCst);
+            trace!("normal add task number to {}", old + 1);
+            sender.unbounded_send(event).map_err(Into::into)
+        } else {
+            Err(Error::IoError(io::ErrorKind::WouldBlock.into()))
         }
     }
 
