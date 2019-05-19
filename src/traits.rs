@@ -120,20 +120,6 @@ impl Encoder for Box<dyn Codec + Send + 'static> {
     }
 }
 
-impl ServiceHandle for Box<dyn ServiceHandle + Send + 'static> {
-    fn handle_error(&mut self, control: &mut ServiceContext, error: ServiceError) {
-        (&mut **self).handle_error(control, error)
-    }
-
-    fn handle_event(&mut self, control: &mut ServiceContext, event: ServiceEvent) {
-        (&mut **self).handle_event(control, event)
-    }
-
-    fn handle_proto(&mut self, control: &mut ServiceContext, event: ProtocolEvent) {
-        (&mut **self).handle_proto(control, event)
-    }
-}
-
 impl ServiceHandle for Box<dyn ServiceHandle + Send + Sync + 'static> {
     fn handle_error(&mut self, control: &mut ServiceContext, error: ServiceError) {
         (&mut **self).handle_error(control, error)
