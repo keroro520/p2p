@@ -12,29 +12,9 @@ use crate::{
     multiaddr::Multiaddr,
     protocol_select::ProtocolInfo,
     secio::{PublicKey, SecioKeyPair},
-    service::{
-        event::{Priority, ServiceTask},
-        DialProtocol, ServiceControl, SessionType, TargetSession,
-    },
-    session::SessionEvent,
+    service::{event::ServiceTask, DialProtocol, ServiceControl, SessionType, TargetSession},
     ProtocolId, SessionId,
 };
-
-pub(crate) struct SessionControl {
-    pub(crate) inner: Arc<SessionContext>,
-    pub(crate) event_sender: mpsc::Sender<SessionEvent>,
-    pub(crate) quick_sender: mpsc::Sender<SessionEvent>,
-}
-
-impl SessionControl {
-    pub(crate) fn sender(&mut self, priority: Priority) -> &mut mpsc::Sender<SessionEvent> {
-        if priority.is_high() {
-            &mut self.quick_sender
-        } else {
-            &mut self.event_sender
-        }
-    }
-}
 
 /// Session context, contains basic information about the current connection
 #[derive(Clone, Debug)]

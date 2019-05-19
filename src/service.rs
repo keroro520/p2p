@@ -11,7 +11,7 @@ use tokio::prelude::{AsyncRead, AsyncWrite, FutureExt};
 use tokio::timer::{Delay, Interval};
 
 use crate::{
-    context::{ServiceContext, SessionContext, SessionControl},
+    context::{ServiceContext, SessionContext},
     error::Error,
     multiaddr::{multihash::Multihash, Multiaddr, Protocol},
     protocol_handle_stream::{
@@ -43,6 +43,7 @@ pub use crate::service::{
     event::{ProtocolEvent, ServiceError, ServiceEvent},
 };
 use bytes::Bytes;
+use futures::sync::mpsc::TrySendError;
 
 /// If the buffer capacity is greater than u8 max, shrink it
 pub(crate) const BUF_SHRINK_THRESHOLD: usize = u8::max_value() as usize;
@@ -60,11 +61,31 @@ pub(crate) enum InnerProtocolHandle {
     Session(Box<dyn SessionProtocol + Send + 'static>),
 }
 
+struct SessionController {
+    inner: Arc<SessionContext>,
+    event_sender: mpsc::Sender<SessionEvent>,
+    quick_sender: mpsc::Sender<SessionEvent>,
+}
+
+impl SessionController {
+    fn try_send(
+        &mut self,
+        priority: Priority,
+        event: SessionEvent,
+    ) -> Result<(), TrySendError<SessionEvent>> {
+        if priority.is_high() {
+            self.quick_sender.try_send(event)
+        } else {
+            self.event_sender.try_send(event)
+        }
+    }
+}
+
 /// An abstraction of p2p service, currently only supports TCP protocol
 pub struct Service<T> {
     protocol_configs: HashMap<String, ProtocolMeta>,
 
-    sessions: HashMap<SessionId, SessionControl>,
+    sessions: HashMap<SessionId, SessionController>,
 
     multi_transport: MultiTransport,
 
@@ -345,7 +366,7 @@ where
                     }
                 }
 
-                if let Err(e) = session.sender(priority).try_send(event) {
+                if let Err(e) = session.try_send(priority, event) {
                     if e.is_full() {
                         block_sessions.insert(id);
                         debug!("session [{}] is full", id);
@@ -837,7 +858,7 @@ where
         let session_closed = Arc::new(AtomicBool::new(false));
         let (service_event_sender, service_event_receiver) = mpsc::channel(SEND_SIZE);
         let (quick_event_sender, quick_event_receiver) = mpsc::channel(SEND_SIZE);
-        let session_control = SessionControl {
+        let session_control = SessionController {
             quick_sender: quick_event_sender,
             event_sender: service_event_sender,
             inner: Arc::new(SessionContext {
