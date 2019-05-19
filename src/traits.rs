@@ -148,6 +148,7 @@ impl ServiceHandle for Box<dyn ServiceHandle + Send + Sync + 'static> {
     }
 }
 
+// 这是什么意思？
 impl ServiceHandle for () {}
 
 impl ServiceProtocol for Box<dyn ServiceProtocol + Send + 'static> {

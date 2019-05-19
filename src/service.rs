@@ -482,6 +482,8 @@ where
                             "session [{}] proto [{}] handle is full",
                             session_id, proto_id
                         );
+                        // 这里如果某个 session 堵住了，会不会导致 read_session_buf 都是
+                        // 这个 session 里的消息？导致其它 session 也发不了消息了？
                         self.read_session_buf
                             .push_back((session_id, proto_id, e.into_inner()));
                         self.proto_handle_error(proto_id, Some(session_id));
@@ -572,6 +574,7 @@ where
 
                 stream.handle_event(ServiceProtocolEvent::Init);
 
+                //// 这是什么意思？
                 tokio::spawn(stream.for_each(|_| Ok(())).map_err(|_| ()));
             }
 
